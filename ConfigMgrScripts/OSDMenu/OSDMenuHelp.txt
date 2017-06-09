@@ -1,0 +1,11 @@
+## Computername
+The computername must be named according to the following rules:
+- 13 characters.
+- ABC<LocationID><SequenceNR>.
+Example: ABCDATSRV0001
+
+## Microsoft Updates
+....
+
+## Domain Member
+....
