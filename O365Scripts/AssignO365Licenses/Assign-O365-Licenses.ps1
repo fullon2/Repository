@@ -12,6 +12,9 @@
 .PARAMETER CredentialFile
   Path to a signed credential file to be used to connect to O365.
   Default file is LicenseManagerCredential.xml
+.PARAMETER Email
+  Enable email funtion on errors
+  Default is false
 
 .INPUTS
   License configuration XML file and optional Credential XML file  
@@ -27,10 +30,10 @@
 .NOTES
 ========================================================================================
   Filename:       Assign-O365_Licenses.ps1
-  Version:        2.0
+  Version:        2.1
   Author:         Sander Schouten (sander.schouten@proactvx.com)
-  Creation Date:  20170921
-  Purpose/Change: Added answer file options
+  Creation Date:  20170925
+  Purpose/Change: Added email notification
   Reguirements:   Powershell 3.0, MSOnline Module and PowerShellLogging module
   Organization:   ProactVX B.V.
   Disclaimer:     This scripts is offered "as is" with no warranty. While this script is 
@@ -41,14 +44,18 @@
 #> 
 
 #-----------------------------------------------------------[Parameters]-----------------------------------------------------------
-#[CmdletBinding(SupportsShouldProcess=$true)]
+[CmdletBinding(DefaultParametersetName='None')]
 param(
-    [Parameter()]
-	[ValidateScript({Test-Path $_ })]
-    [string]$ConfigFile = "$PSScriptRoot\Licenses.xml",
-    [Parameter()]
-	[ValidateScript({Test-Path $_ })]
-    [string]$CredentialFile = "$PSScriptRoot\LicenseManagerCredential.xml"
+    [Parameter()] [ValidateScript({Test-Path $_ })] [string]$ConfigFile = "$PSScriptRoot\Licenses.xml",
+    [Parameter()] [ValidateScript({Test-Path $_ })] [string]$CredentialFile = "$PSScriptRoot\LicenseManagerCredential.xml",
+    [Parameter(ParameterSetName='Email',Mandatory=$false)] [switch]$Email,      
+    [Parameter(ParameterSetName='Email',Mandatory=$true)] [string]$SMTPServer,
+    [Parameter(ParameterSetName='Email',Mandatory=$false)] [string]$SMTPPort = '25',
+    [Parameter(ParameterSetName='Email',Mandatory=$true)] [string]$EmailFrom,
+    [Parameter(ParameterSetName='Email',Mandatory=$true)] [string]$EmailTo,
+    [Parameter(ParameterSetName='Email',Mandatory=$false)] [string]$SMTPUser,
+    [Parameter(ParameterSetName='Email',Mandatory=$false)] [string]$SMTPPassword,
+    [Parameter(ParameterSetName='Email',Mandatory=$false)] [string]$SMTPCredentialFile = "$PSScriptRoot\EmailCredential.xml"
 )
 
 #---------------------------------------------------------[Initialisations]--------------------------------------------------------
@@ -65,6 +72,13 @@ If (Get-Module -ListAvailable -Name PowerShellLogging) {
     Write-Host "Module PowerShellLogging does not exist"
     Exit
 }
+
+#Email Credentials
+#Option 1
+If (Test-Path $SMTPCredentialFile){$EmailCred = Import-Clixml $SMTPCredentialFile}
+#Option 2
+ElseIf (($SMTPUser) -and ($SMTPPassword)){$Credentials = New-Object System.Management.Automation.PSCredential -ArgumentList $SmtpUser, $($smtpPassword | ConvertTo-SecureString -AsPlainText -Force)}
+Else{} 
 
 #Office 365 Admin Credentials
 #Option 1
@@ -332,6 +346,8 @@ Foreach ($license in $XMLDocument.Licenses.License) {
 					Write-Output "SUCCESS: Changed $LicenseSKU for $User"
 				} catch {
 					Write-Warning "WARNING: Error when changing plans on user $User"
+                    $SendEmail = $True
+                    $EmailBody += ("- WARNING: Error when changing plans on user $User" + "`r`n")
 				}
             }
         }
@@ -349,6 +365,8 @@ Foreach ($license in $XMLDocument.Licenses.License) {
 					Write-Output "SUCCESS: Removed $LicenseSKU for $User"
 				} catch {
 					Write-Warning "WARNING: Error when removing license on user $User"
+                    $SendEmail = $True
+                    $EmailBody += ("- WARNING: Error when removing license on user $User" + "`r`n")
 				}
 			}
 		}
@@ -358,7 +376,9 @@ Foreach ($license in $XMLDocument.Licenses.License) {
 
     #Check the amount of licenses left...
     If ($AccountSKU.ActiveUnits - $AccountSKU.consumedunits -lt $UsersToAdd.Count) {
-        Write-Warning 'WARNING: Not enough licenses for all users, please remove user licenses or buy more licenses'
+        Write-Warning 'WARNING: Not enough licenses for all users, please remove user licenses or buy more licenses of' $LicenseSKU
+        $SendEmail = $True
+        $EmailBody += ("- WARNING: Not enough licenses for all users, please remove user licenses or buy more licenses of $LicenseSKU" + "`r`n")
     }
   
 	Foreach ($User in $UsersToAdd){
@@ -381,11 +401,17 @@ Foreach ($license in $XMLDocument.Licenses.License) {
 					Write-Output "SUCCESS: Licensed $User with $LicenseSKU"
 				} catch {
 					Write-Warning "WARNING: Error when licensing $User"
+                    $SendEmail = $True
+                    $EmailBody += ("- WARNING: Error when licensing $User" + "`r`n")
 				}
 			}
 		}
         $UsersToAdd = $Null
 	}
     
+}
+If ($SendEmail){
+    If ($Subject = $Null){$Subject = "O365 licensing errors"}
+    Send-MailMessage -To $EmailTo -from $EmailFrom -subject $Subject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile -Port $SMTPPort -Credential $Credentials
 }
 $LogFile | Disable-LogFile
