@@ -77,7 +77,7 @@ If (Get-Module -ListAvailable -Name PowerShellLogging) {
 #Option 1
 If (Test-Path $SMTPCredentialFile){$EmailCred = Import-Clixml $SMTPCredentialFile}
 #Option 2
-ElseIf (($SMTPUser) -and ($SMTPPassword)){$Credentials = New-Object System.Management.Automation.PSCredential -ArgumentList $SmtpUser, $($smtpPassword | ConvertTo-SecureString -AsPlainText -Force)}
+ElseIf (($SMTPUser) -and ($SMTPPassword)){$EmailCred = New-Object System.Management.Automation.PSCredential -ArgumentList $SmtpUser, $($smtpPassword | ConvertTo-SecureString -AsPlainText -Force)}
 Else{} 
 
 #Office 365 Admin Credentials
@@ -412,6 +412,10 @@ Foreach ($license in $XMLDocument.Licenses.License) {
 }
 If ($SendEmail){
     If ($Subject = $Null){$Subject = "O365 licensing errors"}
-    Send-MailMessage -To $EmailTo -from $EmailFrom -subject $Subject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile -Port $SMTPPort -Credential $Credentials
+    If ($EmailCred){
+        Send-MailMessage -To $EmailTo -from $EmailFrom -subject $Subject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile -Port $SMTPPort -Credential $EmailCred
+    }Else{
+        Send-MailMessage -To $EmailTo -from $EmailFrom -subject $Subject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile -Port $SMTPPort
+    }
 }
 $LogFile | Disable-LogFile
