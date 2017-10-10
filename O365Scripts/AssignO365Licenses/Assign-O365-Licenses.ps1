@@ -13,7 +13,7 @@
   Path to a signed credential file to be used to connect to O365.
   Default file is LicenseManagerCredential.xml
 .PARAMETER Email
-  Enable email funtion on errors
+  Enable email function on errors
   Default is false
 
 .INPUTS
@@ -30,10 +30,10 @@
 .NOTES
 ========================================================================================
   Filename:       Assign-O365_Licenses.ps1
-  Version:        2.1
+  Version:        2.2
   Author:         Sander Schouten (sander.schouten@proactvx.com)
-  Creation Date:  20170925
-  Purpose/Change: Added email notification
+  Creation Date:  20171010
+  Purpose/Change: Fixed email notification
   Reguirements:   Powershell 3.0, MSOnline Module and PowerShellLogging module
   Organization:   ProactVX B.V.
   Disclaimer:     This scripts is offered "as is" with no warranty. While this script is 
