@@ -73,6 +73,8 @@ $LogFileName = "Assign-O365-Licenses-$LogDate.log"
 If (!(Test-Path $PSScriptRoot\Assign-O365-Licenses_Logging)){New-Item -ItemType directory -Path $PSScriptRoot\Assign-O365-Licenses_Logging}
 $LogFile = Enable-LogFile -Path $PSScriptRoot\Assign-O365-Licenses_Logging\$LogFileName
 Write-Output "*************************** Start Logging ********************************"
+$SendEmail = $False
+$EmailBody += ("The following errors occured:" + "`r`n")
 
 #---------------------------------------------------------[Initialisations]--------------------------------------------------------
 #Import Required PowerShell Modules
@@ -430,11 +432,12 @@ Foreach ($license in $XMLDocument.Licenses.License) {
     
 }
 If ($SendEmail){
-    If ($Subject = $Null){$Subject = "O365 licensing errors"}
+#    If ($Subject = $Null){$Subject = "O365 licensing errors"}
+    $Subject = "O365 licensing errors"
     If ($EmailCred){
-        Send-MailMessage -To $EmailTo -from $EmailFrom -subject $Subject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile -Port $SMTPPort -Credential $EmailCred
+        Send-MailMessage -To $EmailTo -from $EmailFrom -subject $Subject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile.path -Port $SMTPPort -Credential $EmailCred
     }Else{
-        Send-MailMessage -To $EmailTo -from $EmailFrom -subject $Subject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile -Port $SMTPPort
+        Send-MailMessage -To $EmailTo -from $EmailFrom -subject $Subject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile.path -Port $SMTPPort
     }
 }
 Write-Output "**************************** Stop Logging ********************************"
