@@ -23,17 +23,17 @@
   Log file stored in <scriptpath>\Assign-O365-Licenses_Logging
 
 .EXAMPLE 
-  powershell -executionpolicy Bypass -file .\Assign-O365_Licenses.ps1
+  powershell -executionpolicy Bypass -file .\Assign-O365-Licenses.ps1
 .EXAMPLE 
-  powershell -executionpolicy Bypass -file .\Assign-O365_Licenses.ps1 -ConfigFile .\file.xml -CredentialFile .\cred.xml
+  powershell -executionpolicy Bypass -file .\Assign-O365-Licenses.ps1 -ConfigFile .\file.xml -CredentialFile .\cred.xml
 
 .NOTES
 ========================================================================================
   Filename:       Assign-O365_Licenses.ps1
-  Version:        2.2
+  Version:        2.3
   Author:         Sander Schouten (sander.schouten@proactvx.com)
   Creation Date:  20171010
-  Purpose/Change: Fixed email notification
+  Purpose/Change: Fixed logging
   Reguirements:   Powershell 3.0, MSOnline Module and PowerShellLogging module
   Organization:   ProactVX B.V.
   Disclaimer:     This scripts is offered "as is" with no warranty. While this script is 
@@ -58,18 +58,38 @@ param(
     [Parameter(ParameterSetName='Email',Mandatory=$false)] [string]$SMTPCredentialFile = "$PSScriptRoot\EmailCredential.xml"
 )
 
+#----------------------------------------------------------[Declarations]----------------------------------------------------------
+#Set BufferSize (for logging)
+$pshost = get-host
+$pswindow = $pshost.ui.rawui
+$newsize = $pswindow.buffersize
+$newsize.height = 5000
+$newsize.width = 300
+$pswindow.buffersize = $newsize
+
+#Enable Logging
+$LogDate = get-date -Format "yyyy-MM-dd"
+$LogFileName = "Assign-O365-Licenses-$LogDate.log"
+If (!(Test-Path $PSScriptRoot\Assign-O365-Licenses_Logging)){New-Item -ItemType directory -Path $PSScriptRoot\Assign-O365-Licenses_Logging}
+$LogFile = Enable-LogFile -Path $PSScriptRoot\Assign-O365-Licenses_Logging\$LogFileName
+Write-Output "*************************** Start Logging ********************************"
+
 #---------------------------------------------------------[Initialisations]--------------------------------------------------------
 #Import Required PowerShell Modules
 If (Get-Module -ListAvailable -Name MSOnline) {
     If (!(Get-module MSOnline )) {Import-Module MSOnline}
 } else {
-    Write-Host "Module MSOnline does not exist"
+    Write-Warning "** Module MSOnline does not exist"
+    Write-Output "**************************** Stop Logging ********************************"
+    $LogFile | Disable-LogFile
     Exit
 }
 If (Get-Module -ListAvailable -Name PowerShellLogging) {
     If (!(Get-module PowerShellLogging )) {Import-Module PowerShellLogging}
 } else {
-    Write-Host "Module PowerShellLogging does not exist"
+    Write-Warning "** Module PowerShellLogging does not exist"
+    Write-Output "**************************** Stop Logging ********************************"
+    $LogFile | Disable-LogFile
     Exit
 }
 
@@ -90,23 +110,18 @@ Else {$CloudCred = get-credential -Message "Office 365 Credential"}
 #$CloudPassword = ConvertTo-SecureString '***********' -AsPlainText -Force
 #$CloudCred = New-Object System.Management.Automation.PSCredential $CloudUsername, $CloudPassword
 
-#Connect to Office 365 
-Connect-MsolService -Credential $CloudCred
+#Connect to Office 365
+try {
+	Connect-MsolService -Credential $CloudCred -ErrorAction Stop -WarningAction Stop
+	Write-Output "** Connected to Azure AD"
+} catch {
+	Write-Warning "* Error Connecting to Azure AD"
+    Write-Output "**************************** Stop Logging ********************************"
+    $LogFile | Disable-LogFile
+    Exit
+}
 
-#----------------------------------------------------------[Declarations]----------------------------------------------------------
-#Set BufferSize (for logging)
-$pshost = get-host
-$pswindow = $pshost.ui.rawui
-$newsize = $pswindow.buffersize
-$newsize.height = 5000
-$newsize.width = 300
-$pswindow.buffersize = $newsize
 
-#Enable Logging
-$LogDate = get-date -Format "yyyy-MM-dd"
-$LogFileName = "Assign-O365-Licenses-$LogDate.log"
-If (!(Test-Path $PSScriptRoot\Assign-O365-Licenses_Logging)){New-Item -ItemType directory -Path $PSScriptRoot\Assign-O365-Licenses_Logging}
-$LogFile = Enable-LogFile -Path $PSScriptRoot\Assign-O365-Licenses_Logging\$LogFileName
 
 #-----------------------------------------------------------[Functions]------------------------------------------------------------
 function Get-JDMsolGroupMember { 
@@ -162,7 +177,9 @@ function Get-JDMsolGroupMember {
 
 #Load Configuration File
 If (!(Test-Path $ConfigFile)){
-    Write-Output "License file $ConfigFile does not exist!"
+    Write-Output "** License file $ConfigFile does not exist!"
+    Write-Output "**************************** Stop Logging ********************************"
+    $LogFile | Disable-LogFile
     Exit
 }
 Else {[xml]$XMLDocument = Get-Content -Path $ConfigFile}
@@ -317,6 +334,8 @@ Foreach ($license in $XMLDocument.Licenses.License) {
 	} Else {
 		If ($ActiveUsers){
 			Write-Warning   "WARNING: Group $GroupNameBasic and $GroupNameFull both are empty - will process removal or move of all users with license $($AccountSKU.AccountSkuId)"
+            $SendEmail = $True
+            $EmailBody += ("- WARNING: Group $GroupNameBasic and $GroupNameFull both are empty - will process removal or move of all users with license $($AccountSKU.AccountSkuId)" + "`r`n")
 			#If no users are a member in the group, add them for deletion or change of license.
 			$UsersToDelete = $ActiveUsers
 			Write-Output "- Remove members: $UsersToDelete"
@@ -418,4 +437,5 @@ If ($SendEmail){
         Send-MailMessage -To $EmailTo -from $EmailFrom -subject $Subject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile -Port $SMTPPort
     }
 }
+Write-Output "**************************** Stop Logging ********************************"
 $LogFile | Disable-LogFile
