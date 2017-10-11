@@ -30,10 +30,10 @@
 .NOTES
 ========================================================================================
   Filename:       Assign-O365_Licenses.ps1
-  Version:        2.3
+  Version:        2.3.1
   Author:         Sander Schouten (sander.schouten@proactvx.com)
-  Creation Date:  20171010
-  Purpose/Change: Fixed logging
+  Creation Date:  20171011
+  Purpose/Change: Email subject as parameter/Bug fixes
   Reguirements:   Powershell 3.0, MSOnline Module and PowerShellLogging module
   Organization:   ProactVX B.V.
   Disclaimer:     This scripts is offered "as is" with no warranty. While this script is 
@@ -53,6 +53,7 @@ param(
     [Parameter(ParameterSetName='Email',Mandatory=$false)] [string]$SMTPPort = '25',
     [Parameter(ParameterSetName='Email',Mandatory=$true)] [string]$EmailFrom,
     [Parameter(ParameterSetName='Email',Mandatory=$true)] [string]$EmailTo,
+    [Parameter(ParameterSetName='Email',Mandatory=$false)] [string]$EmailSubject = "O365 licensing errors",
     [Parameter(ParameterSetName='Email',Mandatory=$false)] [string]$SMTPUser,
     [Parameter(ParameterSetName='Email',Mandatory=$false)] [string]$SMTPPassword,
     [Parameter(ParameterSetName='Email',Mandatory=$false)] [string]$SMTPCredentialFile = "$PSScriptRoot\EmailCredential.xml"
@@ -81,7 +82,7 @@ $EmailBody += ("The following errors occured:" + "`r`n")
 If (Get-Module -ListAvailable -Name MSOnline) {
     If (!(Get-module MSOnline )) {Import-Module MSOnline}
 } else {
-    Write-Warning "** Module MSOnline does not exist"
+    Write-Warning "** WARNING: Module MSOnline does not exist"
     Write-Output "**************************** Stop Logging ********************************"
     $LogFile | Disable-LogFile
     Exit
@@ -89,7 +90,7 @@ If (Get-Module -ListAvailable -Name MSOnline) {
 If (Get-Module -ListAvailable -Name PowerShellLogging) {
     If (!(Get-module PowerShellLogging )) {Import-Module PowerShellLogging}
 } else {
-    Write-Warning "** Module PowerShellLogging does not exist"
+    Write-Warning "** WARNING: Module PowerShellLogging does not exist"
     Write-Output "**************************** Stop Logging ********************************"
     $LogFile | Disable-LogFile
     Exit
@@ -117,13 +118,29 @@ try {
 	Connect-MsolService -Credential $CloudCred -ErrorAction Stop -WarningAction Stop
 	Write-Output "** Connected to Azure AD"
 } catch {
-	Write-Warning "* Error Connecting to Azure AD"
+	Write-Warning "** WARNING: Error Connecting to Azure AD"
     Write-Output "**************************** Stop Logging ********************************"
     $LogFile | Disable-LogFile
     Exit
 }
 
 
+#Load Configuration File
+If (!(Test-Path $ConfigFile)){
+    Write-Output "** WARNING: License/config file $ConfigFile does not exist!"
+    Write-Output "**************************** Stop Logging ********************************"
+    $LogFile | Disable-LogFile
+    Exit
+}Else {
+    try {
+        [xml]$XMLDocument = Get-Content -Path $ConfigFile
+    } catch {
+	    Write-Warning "** License/config file $ConfigFile is corrupt!"
+        Write-Output "**************************** Stop Logging ********************************"
+        $LogFile | Disable-LogFile
+        Exit
+    }
+}
 
 #-----------------------------------------------------------[Functions]------------------------------------------------------------
 function Get-JDMsolGroupMember { 
@@ -139,7 +156,7 @@ function Get-JDMsolGroupMember {
     .NOTES
         Author   : Johan Dahlbom, johan[at]dahlbom.eu
         Blog     : 365lab.net 
-        The script are provided â€œAS ISâ€ with no guarantees, no warranties, and it confer no rights.
+        The script are provided “AS IS” with no guarantees, no warranties, and it confer no rights.
     #>
      
         param(
@@ -176,15 +193,6 @@ function Get-JDMsolGroupMember {
 }
 
 #-----------------------------------------------------------[Execution]------------------------------------------------------------
-
-#Load Configuration File
-If (!(Test-Path $ConfigFile)){
-    Write-Output "** License file $ConfigFile does not exist!"
-    Write-Output "**************************** Stop Logging ********************************"
-    $LogFile | Disable-LogFile
-    Exit
-}
-Else {[xml]$XMLDocument = Get-Content -Path $ConfigFile}
 
 #Set Location for O365
 $UsageLocation = $XMLDocument.Licenses.Usagelocation
@@ -432,12 +440,10 @@ Foreach ($license in $XMLDocument.Licenses.License) {
     
 }
 If ($SendEmail){
-#    If ($Subject = $Null){$Subject = "O365 licensing errors"}
-    $Subject = "O365 licensing errors"
     If ($EmailCred){
-        Send-MailMessage -To $EmailTo -from $EmailFrom -subject $Subject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile.path -Port $SMTPPort -Credential $EmailCred
+        Send-MailMessage -To $EmailTo -from $EmailFrom -subject $EmailSubject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile.path -Port $SMTPPort -Credential $EmailCred
     }Else{
-        Send-MailMessage -To $EmailTo -from $EmailFrom -subject $Subject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile.path -Port $SMTPPort
+        Send-MailMessage -To $EmailTo -from $EmailFrom -subject $EmailSubject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile.path -Port $SMTPPort
     }
 }
 Write-Output "**************************** Stop Logging ********************************"
