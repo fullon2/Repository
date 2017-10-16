@@ -30,7 +30,7 @@
 .NOTES
 ========================================================================================
   Filename:       Assign-O365_Licenses.ps1
-  Version:        2.4.0
+  Version:        2.4.1
   Author:         Sander Schouten (sander.schouten@proactvx.com)
   Creation Date:  20171013
   Purpose/Change: Corrected MSolUser ServicePlans query 
@@ -68,6 +68,14 @@ $newsize.height = 5000
 $newsize.width = 300
 $pswindow.buffersize = $newsize
 
+#---------------------------------------------------------[Initialisations]--------------------------------------------------------
+#Import Required PowerShellLogging Module
+If (Get-Module -ListAvailable -Name PowerShellLogging) {
+    If (!(Get-module PowerShellLogging )) {Import-Module PowerShellLogging}
+} else {
+    Write-Warning "WARNING: Module PowerShellLogging does not exist"
+    Exit
+}
 #Enable Logging
 $LogDate = get-date -Format "yyyy-MM-dd"
 $LogTime = get-date -Format "yyyy-MM-dd_HH:mm"
@@ -80,23 +88,14 @@ Write-Output "******************************************************************
 $SendEmail = $False
 $EmailBody += ("The following errors occured:" + "`r`n")
 
-#---------------------------------------------------------[Initialisations]--------------------------------------------------------
-#Import Required PowerShell Modules
+#Import Required MSOnline Module
 If (Get-Module -ListAvailable -Name MSOnline) {
     If (!(Get-module MSOnline )) {Import-Module MSOnline}
 } else {
     Write-Warning "* WARNING: Module MSOnline does not exist"
     Write-Output "**************************** Stop Logging ********************************"
-    $LogFile | Disable-LogFile
-    Exit
-}
-If (Get-Module -ListAvailable -Name PowerShellLogging) {
-    If (!(Get-module PowerShellLogging )) {Import-Module PowerShellLogging}
-} else {
-    Write-Warning "* WARNING: Module PowerShellLogging does not exist"
-    Write-Output "**************************** Stop Logging ********************************"
-    $LogFile | Disable-LogFile
-    Exit
+    $EmailBody += ("- WARNING: Module MSOnline does not exist" + "`r`n")
+    $ErrorOccured = $True
 }
 
 #Email Credentials
@@ -125,8 +124,8 @@ try {
 } catch {
 	Write-Warning "* WARNING: Error Connecting to Azure AD"
     Write-Output "**************************** Stop Logging ********************************"
-    $LogFile | Disable-LogFile
-    Exit
+    $EmailBody += ("- WARNING: Error Connecting to Azure AD" + "`r`n")
+    $ErrorOccured = $True
 }
 
 
@@ -134,17 +133,29 @@ try {
 If (!(Test-Path $ConfigFile)){
     Write-Output "* WARNING: License/config file $ConfigFile does not exist!"
     Write-Output "**************************** Stop Logging ********************************"
-    $LogFile | Disable-LogFile
-    Exit
+    $EmailBody += ("- WARNING: License/config file $ConfigFile does not exist!" + "`r`n")
+    $ErrorOccured = $True
 }Else {
     try {
         [xml]$XMLDocument = Get-Content -Path $ConfigFile
     } catch {
 	    Write-Warning "* WARNING: License/config file $ConfigFile is corrupt!"
         Write-Output "**************************** Stop Logging ********************************"
-        $LogFile | Disable-LogFile
-        Exit
+        $EmailBody += ("- WARNING: License/config file $ConfigFile is corrupt!" + "`r`n")
+        $ErrorOccured = $True
     }
+}
+
+If ($ErrorOccured){
+    If ($SendEmail){
+        If ($EmailCred){
+            Send-MailMessage -To $EmailTo -from $EmailFrom -subject $EmailSubject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile.path -Port $SMTPPort -Credential $EmailCred
+        }Else{
+            Send-MailMessage -To $EmailTo -from $EmailFrom -subject $EmailSubject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile.path -Port $SMTPPort
+        }
+    }
+    $LogFile | Disable-LogFile
+    Exit
 }
 
 #-----------------------------------------------------------[Functions]------------------------------------------------------------
@@ -161,7 +172,7 @@ function Get-JDMsolGroupMember {
     .NOTES
         Author   : Johan Dahlbom, johan[at]dahlbom.eu
         Blog     : 365lab.net 
-        The script are provided “AS IS” with no guarantees, no warranties, and it confer no rights.
+        The script are provided ï¿½AS ISï¿½ with no guarantees, no warranties, and it confer no rights.
     #>
      
         param(
@@ -198,10 +209,10 @@ function Get-JDMsolGroupMember {
 }
 
 #-----------------------------------------------------------[Execution]------------------------------------------------------------
-
 #Set Location for O365
 $UsageLocation = $XMLDocument.Licenses.Usagelocation
-  
+
+#Set Customobject for MSOLUser propperties
 $LicensedUserDetails = Get-MsolUser -All | Where-Object {$_.IsLicensed -eq 'True'} | ForEach-Object {
   [pscustomobject]@{
                         UserPrincipalName = $_.UserPrincipalName
@@ -215,8 +226,7 @@ $LicensedUserDetails = Get-MsolUser -All | Where-Object {$_.IsLicensed -eq 'True
                             }
                         }
   }
- 
-  
+   
 #Create array for users to change or delete
 $UsersToDelete = @()
   
@@ -233,14 +243,14 @@ Foreach ($license in $XMLDocument.Licenses.License) {
     Write-Output "Processing $LicenseSKU with group $GroupNameFull and $GroupNameBasic (ObjectGuid $GroupIDFull and $GroupIDBasic)..."
 	
 	If ($EnabledPlans) {
-		$DisabledPlans = (Compare-Object -ReferenceObject $AccountSKU.ServiceStatus.ServicePlan.ServiceName -DIfferenceObject $EnabledPlans).InputObject
+		$DisabledPlans = (Compare-Object -ReferenceObject $AvailablePlans -DIfferenceObject $EnabledPlans).InputObject
 		$LicenseOptionHt = @{
 			AccountSkuId = $AccountSKU.AccountSkuId
 			DisabledPlans = $DisabledPlans
 		}
 		$LicenseOptions = New-MsolLicenseOptions @LicenseOptionHt
-    Write-Output "- DisabledPlans: $DisabledPlans"
-	Write-Output "- Enabled plans: $EnabledPlans"
+        Write-Output "- DisabledPlans: $DisabledPlans"
+    	Write-Output "- Enabled plans: $EnabledPlans"
 	}
 
     #Get all members of the group in current scope. Also nested groups.
@@ -334,7 +344,6 @@ Foreach ($license in $XMLDocument.Licenses.License) {
 			$UsersToAdd = $GroupMembers
 			If ($UsersToAdd) {Write-Output "- New Members: $UsersToAdd"}
 		}
-
 	} Else {
 		If ($ActiveUsers){
 			Write-Warning   "- WARNING: Group $GroupNameBasic and $GroupNameFull both are empty - will process removal or move of all users with license $($AccountSKU.AccountSkuId)"
@@ -443,6 +452,7 @@ Foreach ($license in $XMLDocument.Licenses.License) {
     }
     Write-Output "--------------------------------------------------------------------------"
 }
+Write-Output "**************************** Stop Logging ********************************"
 If ($SendEmail){
     If ($EmailCred){
         Send-MailMessage -To $EmailTo -from $EmailFrom -subject $EmailSubject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile.path -Port $SMTPPort -Credential $EmailCred
@@ -450,5 +460,4 @@ If ($SendEmail){
         Send-MailMessage -To $EmailTo -from $EmailFrom -subject $EmailSubject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile.path -Port $SMTPPort
     }
 }
-Write-Output "**************************** Stop Logging ********************************"
 $LogFile | Disable-LogFile
