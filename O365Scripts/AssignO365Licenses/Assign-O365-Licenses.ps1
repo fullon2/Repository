@@ -420,7 +420,7 @@ Foreach ($license in $XMLDocument.Licenses.License) {
         Write-Output "Processing adding members..."
         #Check the amount of licenses left...
         If ($AccountSKU.ActiveUnits - $AccountSKU.consumedunits -lt $UsersToAdd.Count) {
-            Write-Warning '- WARNING: Not enough licenses for all users, please remove user licenses or buy more licenses of' $LicenseSKU
+            Write-Warning " - WARNING: Not enough licenses for all users, please remove user licenses or buy more licenses of $LicenseSKU"
             $ErrorOccured = $True
             $EmailBody += ("- WARNING: Not enough licenses for all users, please remove user licenses or buy more licenses of $LicenseSKU" + "`r`n")
         }Else{
