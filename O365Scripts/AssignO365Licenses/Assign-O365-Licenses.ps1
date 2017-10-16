@@ -30,7 +30,7 @@
 .NOTES
 ========================================================================================
   Filename:       Assign-O365_Licenses.ps1
-  Version:        2.4.1
+  Version:        2.4.2
   Author:         Sander Schouten (sander.schouten@proactvx.com)
   Creation Date:  20171013
   Purpose/Change: Corrected MSolUser ServicePlans query 
@@ -52,7 +52,7 @@ param(
     [Parameter(ParameterSetName='Email',Mandatory=$true)] [string]$SMTPServer,
     [Parameter(ParameterSetName='Email',Mandatory=$false)] [string]$SMTPPort = '25',
     [Parameter(ParameterSetName='Email',Mandatory=$true)] [string]$EmailFrom,
-    [Parameter(ParameterSetName='Email',Mandatory=$true)] [string]$EmailTo,
+    [Parameter(ParameterSetName='Email',Mandatory=$true)] [string[]]$EmailTo,
     [Parameter(ParameterSetName='Email',Mandatory=$false)] [string]$EmailSubject = "O365 licensing errors",
     [Parameter(ParameterSetName='Email',Mandatory=$false)] [string]$SMTPUser,
     [Parameter(ParameterSetName='Email',Mandatory=$false)] [string]$SMTPPassword,
@@ -67,6 +67,11 @@ $newsize = $pswindow.buffersize
 $newsize.height = 5000
 $newsize.width = 300
 $pswindow.buffersize = $newsize
+
+# Create possible multiple recipients
+If ($EmailTo){
+    $EmailTo = $EmailTo.Split(",")
+}
 
 #---------------------------------------------------------[Initialisations]--------------------------------------------------------
 #Import Required PowerShellLogging Module
@@ -85,7 +90,6 @@ $LogFile = Enable-LogFile -Path $PSScriptRoot\Assign-O365-Licenses_Logging\$LogF
 Write-Output "**************************************************************************"
 Write-Output "********************* Start Logging ($LogTime) *******************"
 Write-Output "**************************************************************************"
-$SendEmail = $False
 $EmailBody += ("The following errors occured:" + "`r`n")
 
 #Import Required MSOnline Module
@@ -146,14 +150,16 @@ If (!(Test-Path $ConfigFile)){
     }
 }
 
+#Send email if error occured and email is enabled
 If ($ErrorOccured){
-    If ($SendEmail){
+    If ($Email){
         If ($EmailCred){
             Send-MailMessage -To $EmailTo -from $EmailFrom -subject $EmailSubject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile.path -Port $SMTPPort -Credential $EmailCred
         }Else{
             Send-MailMessage -To $EmailTo -from $EmailFrom -subject $EmailSubject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile.path -Port $SMTPPort
         }
     }
+    #Close logfile
     $LogFile | Disable-LogFile
     Exit
 }
@@ -347,7 +353,7 @@ Foreach ($license in $XMLDocument.Licenses.License) {
 	} Else {
 		If ($ActiveUsers){
 			Write-Warning   "- WARNING: Group $GroupNameBasic and $GroupNameFull both are empty - will process removal or move of all users with license $($AccountSKU.AccountSkuId)"
-            $SendEmail = $True
+            $ErrorOccured = $True
             $EmailBody += ("- WARNING: Group $GroupNameBasic and $GroupNameFull both are empty - will process removal or move of all users with license $($AccountSKU.AccountSkuId)" + "`r`n")
 			#If no users are a member in the group, add them for deletion or change of license.
 			$UsersToDelete = $ActiveUsers
@@ -379,7 +385,7 @@ Foreach ($license in $XMLDocument.Licenses.License) {
 					Write-Output "-- SUCCESS: Changed $LicenseSKU for $User"
 				} catch {
 					Write-Warning "-- WARNING: Error when changing plans on user $User"
-                    $SendEmail = $True
+                    $ErrorOccured = $True
                     $EmailBody += ("- WARNING: Error when changing plans on user $User" + "`r`n")
 				}
             }
@@ -400,7 +406,7 @@ Foreach ($license in $XMLDocument.Licenses.License) {
 					Write-Output "-- SUCCESS: Removed $LicenseSKU for $User"
 				} catch {
 					Write-Warning "-- WARNING: Error when removing license on user $User"
-                    $SendEmail = $True
+                    $ErrorOccured = $True
                     $EmailBody += ("- WARNING: Error when removing license on user $User" + "`r`n")
 				}
 			}
@@ -415,7 +421,7 @@ Foreach ($license in $XMLDocument.Licenses.License) {
         #Check the amount of licenses left...
         If ($AccountSKU.ActiveUnits - $AccountSKU.consumedunits -lt $UsersToAdd.Count) {
             Write-Warning '- WARNING: Not enough licenses for all users, please remove user licenses or buy more licenses of' $LicenseSKU
-            $SendEmail = $True
+            $ErrorOccured = $True
             $EmailBody += ("- WARNING: Not enough licenses for all users, please remove user licenses or buy more licenses of $LicenseSKU" + "`r`n")
         }Else{
             #Add new license members...
@@ -440,7 +446,7 @@ Foreach ($license in $XMLDocument.Licenses.License) {
 					        Write-Output "-- SUCCESS: Licensed $User with $LicenseSKU"
 				        } catch {
 					        Write-Warning "-- WARNING: Error when licensing $User"
-                            $SendEmail = $True
+                            $ErrorOccured = $True
                             $EmailBody += ("- WARNING: Error when licensing $User" + "`r`n")
 				        }
 			        }
@@ -453,11 +459,18 @@ Foreach ($license in $XMLDocument.Licenses.License) {
     Write-Output "--------------------------------------------------------------------------"
 }
 Write-Output "**************************** Stop Logging ********************************"
-If ($SendEmail){
-    If ($EmailCred){
-        Send-MailMessage -To $EmailTo -from $EmailFrom -subject $EmailSubject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile.path -Port $SMTPPort -Credential $EmailCred
-    }Else{
-        Send-MailMessage -To $EmailTo -from $EmailFrom -subject $EmailSubject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile.path -Port $SMTPPort
+
+#Send email if error occured and email is enabled
+If ($ErrorOccured){
+    If ($Email){
+        If ($EmailCred){
+            Send-MailMessage -To $EmailTo -from $EmailFrom -subject $EmailSubject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile.path -Port $SMTPPort -Credential $EmailCred
+        }Else{
+            Send-MailMessage -To $EmailTo -from $EmailFrom -subject $EmailSubject -body $EmailBody -smtpServer $SMTPServer -Attachments $LogFile.path -Port $SMTPPort
+        }
     }
 }
+
+#Close logfile
 $LogFile | Disable-LogFile
+Exit
