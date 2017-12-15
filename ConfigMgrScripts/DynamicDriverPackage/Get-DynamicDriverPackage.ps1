@@ -6,25 +6,23 @@
   This script will query the latest driverpack for current model.    
 
 .PARAMETER Account
-  ..
+  Account with permission to remotely query SiteServer (powershell)
 .PARAMETER Password
-  ..
+  Password of remote permission account
 .PARAMETER SiteServer
-  ..
+  Name of the primairy SiteServer
 .PARAMETER SiteCode
-  ..
+  SiteCode of SCCM Primary Site 
 .PARAMETER OSVersion
-  ..
-.PARAMETER SiteServer
-  ..
+  String to search for OS version
 .PARAMETER DriverPackage
-  ..
+  Boolean for Driverpackage or normal package search
   Default is $True
 .PARAMETER MatchProperty
-  ..
-  Default "Description" property
+  Property to query (comma seporated) model and os for
+  Default "Description" property of package
 .PARAMETER ModelName
-  ..
+  Overide model to query for (backupmethod)
   Default is Empty (will be queried)
 
 .INPUTS
@@ -61,7 +59,7 @@ param
     [string]$Account = "<domain>\<user>",
     [string]$Password = "********",
     [string]$SiteServer = "<sccmserverfqdn>",
-    [string]$SiteCode = "<OSiteCode>",
+    [string]$SiteCode = "<SiteCode>",
     [string]$OSVersion = "Win10X64_1709",
     [Bool]$DriverPackage = $True,
     [string]$MatchProperty = 'Description',
