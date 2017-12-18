@@ -39,10 +39,10 @@
 .NOTES
 ========================================================================================
   Filename:       Get-DynamicDriverPackage.ps1
-  Version:        1.0.0
+  Version:        1.0.1
   Author:         Sander Schouten (sander.schouten@proactvx.com)
-  Creation Date:  20171215
-  Purpose/Change: First release 
+  Creation Date:  20171218
+  Purpose/Change: Make OSVersion optional 
   Reguirements:   Powershell 3.0
   Organization:   ProactVX B.V.
   Disclaimer:     This scripts is offered "as is" with no warranty. While this script is 
@@ -56,14 +56,14 @@
 [CmdletBinding()]
 param
 (
-    [string]$Account = "<domain>\<user>",
-    [string]$Password = "********",
-    [string]$SiteServer = "<sccmserverfqdn>",
-    [string]$SiteCode = "<SiteCode>",
-    [string]$OSVersion = "Win10X64_1709",
-    [Bool]$DriverPackage = $True,
-    [string]$MatchProperty = 'Description',
-    [string]$ModelName = $Null
+    [Parameter(Mandatory=$True)] [string]$Account = "<domain>\<user>",
+    [Parameter(Mandatory=$True)] [string]$Password = "********",
+    [Parameter(Mandatory=$True)] [string]$SiteServer = "<sccmserverfqdn>",
+    [Parameter(Mandatory=$True)] [string]$SiteCode = "<SiteCode>",
+    [Parameter(Mandatory=$False)] [string]$OSVersion = $Null,
+    [Parameter(Mandatory=$False)] [Bool]$DriverPackage = $True,
+    [Parameter(Mandatory=$False)] [string]$MatchProperty = 'Description',
+    [Parameter(Mandatory=$False)] [string]$ModelName = $Null
 )
 
 If (!$ModelName){
@@ -87,7 +87,7 @@ Try{
     $tsenv = New-Object -COMObject Microsoft.SMS.TSEnvironment
     $tsenvInitialized = $true
 }catch{
-    Write-Host -Object '!! No Taskseqeunce environment !!'
+    Write-Host -Object 'Note: No Tasksequence environment!'
     $tsenvInitialized = $false
 }
 
@@ -108,16 +108,19 @@ Try{
     $AllDriverPackages = Invoke-Command -Session $Session -ScriptBlock {$DriverPackages}
     $SiteServerAccess = $true
 }catch{
-    Write-Host -Object 'No access to Site server'
+    Write-Host -Object 'Warning: No access to Siteserver! '
     $SiteServerAccess = $False
 }
 
 If ($SiteServerAccess){
-    $PackageID = (($AllDriverPackages | ? {($_.$MatchProperty.Split(',').Contains($ModelName)) -and ($_.$MatchProperty.Split(',').Contains($OSVersion))})|Sort-Object -Property Version -Descending |Select-Object -First 1).PackageID
+    If ($OSVersion){
+        $PackageID = (($AllDriverPackages | ? {($_.$MatchProperty.Split(',').Contains($ModelName)) -and ($_.$MatchProperty.Split(',').Contains($OSVersion))})|Sort-Object -Property Version -Descending |Select-Object -First 1).PackageID
+    }Else{
+        $PackageID = ($AllDriverPackages | ? {($_.$MatchProperty.Split(',').Contains($ModelName))}|Sort-Object -Property Version -Descending |Select-Object -First 1).PackageID
+    }
     Write-Host -Object "Selected Package: $PackageID"
     Remove-PSSession $Session
 }
 If (($tsenvInitialized)-and($PackageID)){
     $tsenv.Value('OSDDownloadDownloadPackages') = $PackageID
 }
-
