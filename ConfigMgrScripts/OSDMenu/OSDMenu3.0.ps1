@@ -11,9 +11,9 @@ Just display the output, no changes are made.
 .EXAMPLE 
 powershell -executionpolicy Bypass -file .\OSDMenu.ps1 -XMLFile .\OSDMenu.xml
 .NOTES
-Sander Schouten (sander.schouten@proactvx.com)
+Sander Schouten (sander.schouten@proact.nl)
 
-Copyright ProactVX B.V, All Rights reserved.  
+Copyright Proact Netherlands B.V., All Rights reserved.  
 #> 
 
 [CmdletBinding(SupportsShouldProcess=$true)]
@@ -333,7 +333,8 @@ $statusLabel = New-Object System.Windows.Forms.ToolStripStatusLabel
 [void]$statusStrip.Items.Add($statusLabel)
 $statusStrip.SizingGrip = $false
 $statusLabel.AutoSize = $true
-$statusLabel.Text = [char]0x00A9 + " 2016 ProactVX B.V."
+#$statusLabel.Text = [char]0x00A9 + " 2019 Proact Netherlands B.V."
+$statusLabel.Text = "2019 Proact Netherlands B.V."
 $FormItems += $statusStrip
 
 ## Create Enter properties
