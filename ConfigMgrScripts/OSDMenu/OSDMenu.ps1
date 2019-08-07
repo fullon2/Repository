@@ -13,7 +13,10 @@ powershell -executionpolicy Bypass -file .\OSDMenu.ps1 -XMLFile .\OSDMenu.xml
 .NOTES
 Sander Schouten (sander.schouten@proact.nl)
 
-Copyright Proact Netherlands B.V., All Rights reserved.  
+History:
+Update 20190730: Fixed True/False check TSVariables
+
+Copyright Proact Netherlands B.V., All Rights reserved.
 #> 
 
 [CmdletBinding(SupportsShouldProcess=$true)]
@@ -25,7 +28,7 @@ param(
 )
 
 ## Combine Form info
-Function Load-Form 
+Function Show-OSDMenuForm 
 {
     $Form.Size = New-Object System.Drawing.Size($OSDMenuWidth,$OSDMenuMaxHeight)
     $Form.Controls.AddRange($FormItems)
@@ -34,16 +37,25 @@ Function Load-Form
 }
 
 ## Retreive TS variable value from ConfigMgr properties
-Function Get-TSVariableValue ($TSVariable) 
-{
-    If ($DemoMode -eq $true){
-        $TSVariableValue = "demo"
+Function Get-TSVariableValue ($TSVariable) {
+    If ($DemoMode -eq $true) {
+        $TSVariableValue = 'demomode'
     }
     Else {
         $TSEnv = New-Object -COMObject Microsoft.SMS.TSEnvironment
         $TSVariableValue = $TSEnv.Value($TSVariable)
-        If (($TSVariableValue -eq $Null) -or ($TSVariableValue.ToUpper() -like '*MININT-*')){
-            $TSVariableValue = ""
+    }
+    If ((!($TSVariableValue)) -or ($TSVariableValue.ToUpper() -like '*MININT-*')) {
+        $TSVariableValue = ""
+    }
+    Else {
+        If ($TSVariableValue -match '^-?(\.\d+|\d+(\.\d*)?)$') {
+            If ($TSVariableValue -eq 0) { $TSVariableValue = $false }
+            If ($TSVariableValue -eq 1) { $TSVariableValue = $true }
+        }
+        Else {
+            If ($TSVariableValue.ToLower() -eq "false") { $TSVariableValue = $false }
+            If ($TSVariableValue.ToLower() -eq "true") { $TSVariableValue = $true }
         }
     }
     $TSVariableValue
@@ -102,11 +114,11 @@ Function Enable-CheckedOptions
     If ($ErrorCount -eq 0) { 
         $Form.Close()
         If ($DemoMode -eq $true){
-            Load-Demo $DemoModeItems
+            Show-OSDMenuDemoForm $DemoModeItems
         }
     }
 }
-Function Load-Demo ($DemoModeItems)
+Function Show-OSDMenuDemoForm ($DemoModeItems)
 {
     Add-Type -AssemblyName System.Windows.Forms 
     $LabelHeight = 20
@@ -149,7 +161,7 @@ Function Load-Demo ($DemoModeItems)
 }
 
 ## Exit Form with error (Cancel)
-Function Cancel-Form
+Function Exit-OSDMenu
 {
     If ($DemoMode -eq $true){
         $Form.Close()
@@ -160,7 +172,7 @@ Function Cancel-Form
     }
 }
 
-Function Display-help
+Function Show-OSDMenuHelpForm
 {
     Add-Type -AssemblyName System.Windows.Forms 
     $LabelHeight = 20
@@ -262,7 +274,18 @@ ForEach ($Groupbox in $XMLOSDMenu.OSDMenu.GroupBox){
                     $ChBEntry.Size = new-object System.Drawing.Size(195,$ChBHeight)
                     $ChBEntry.Text = $CheckBox.Text
                     $ChBEntry.Name = $CheckBox.variablename
-                    $ChBEntry.Checked = $CheckBox.Checked
+                    $TSVariableValueTest = (Get-TSVariableValue -TSVariable $CheckBox.variablename)
+                    If (($TSVariableValueTest -eq $false) -or ($TSVariableValueTest -eq $true)) {
+                        $ChBEntry.Checked = $TSVariableValueTest
+                    } else {
+                        If ($CheckBox.Checked -match '^-?(\.\d+|\d+(\.\d*)?)$'){
+                            If ($CheckBox.Checked -eq 0) {$ChBEntry.Checked = $false}
+                            If ($CheckBox.Checked -eq 1) {$ChBEntry.Checked = $true}
+                        } else {
+                            If ($CheckBox.Checked.ToLower() -eq "false") {$ChBEntry.Checked = $false}
+                            If ($CheckBox.Checked.ToLower() -eq "true") {$ChBEntry.Checked = $true}
+                        }
+                    }
                     $ChBEntry.TabIndex = ($TabIndex += 1)
                     $FormItems += $ChBEntry
                     $GBHeight += $ChBHeight
@@ -314,7 +337,7 @@ $ButtonCancel.Location = New-Object System.Drawing.Size(20,$ButtonHeight)
 $ButtonCancel.Size = New-Object System.Drawing.Size(50,20)
 $ButtonCancel.Text = "Cancel"
 $ButtonCancel.TabIndex = ($TabIndex += 1)
-$ButtonCancel.Add_Click({Cancel-Form})
+$ButtonCancel.Add_Click({Exit-OSDMenu})
 $FormItems += $ButtonCancel
 
 If($XMLOSDMenu.OSDMenu.enablehelp -eq 1){
@@ -323,7 +346,7 @@ If($XMLOSDMenu.OSDMenu.enablehelp -eq 1){
     $ButtonHelp.Size = New-Object System.Drawing.Size(50,20)
     $ButtonHelp.Text = "Help"
     $ButtonHelp.TabIndex = ($TabIndex += 1)
-    $ButtonHelp.Add_Click({Display-help})
+    $ButtonHelp.Add_Click({Show-OSDMenuHelpForm})
     $FormItems += $ButtonHelp
 }
 
@@ -342,4 +365,4 @@ $Form.KeyPreview = $True
 $Form.Add_KeyDown({if ($_.KeyCode -eq "Enter"){Enable-CheckedOptions}})
 
 ## Load complete form
-Load-Form
+Show-OSDMenuForm
