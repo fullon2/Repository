@@ -2,16 +2,16 @@
 <OSDMenu Name="OSD Menu" Version="3.0" enablehelp="1">
    <GroupBox id="0" type="TextBox" name="Computernaam" wvariablename="OSDComputerName" rvariablename="_SMSTSMachineName" match="^\w[\w\-]{4,14}$" enabled="1" />
    <GroupBox id="1" type="TextBox" name="Primary Users" wvariablename="SMSTSUdaUsers" rvariablename="SMSTSUdaUsers" match="^DOMAIN\\\w+$" enabled="0" />
-   <GroupBox id="2" type="ComboBox" name="Installation Type" enabled="1" >
-      <ComboBox id="0" variablename="installtype" >
-		  <ComboBoxItem id="0" text="Standard" variablevalue="Standard" />
-		  <ComboBoxItem id="1" text="Special" variablevalue="Special" />
-	  </ComboBox>
+   <GroupBox id="2" type="ComboBox" name="Installation Type" enabled="1">
+      <ComboBox id="0" variablename="installtype">
+         <ComboBoxItem id="0" text="Standard" variablevalue="Standard" />
+         <ComboBoxItem id="1" text="Special" variablevalue="Special" />
+      </ComboBox>
    </GroupBox>
-   <GroupBox id="3" type="CheckBox" name="Options" enabled="1" >
-      <CheckBox id="0" text="Base Software" variablename="baseapplications" Checked="$True" enabled="1" />
-	  <CheckBox id="1" text="Microsoft Updates" variablename="windowsupdates" Checked="$True" enabled="1" />
-	  <CheckBox id="2" text="Domain Member" variablename="domainmember" Checked="$True" enabled="1" />
-	  <CheckBox id="3" text="Enable Bitlocker" variablename="enablebitlocker" Checked="$True" enabled="1" />
+   <GroupBox id="3" type="CheckBox" name="Options" enabled="1">
+      <CheckBox id="0" text="Base Software" variablename="baseapplications" Checked="True" enabled="1" />
+      <CheckBox id="1" text="Microsoft Updates" variablename="windowsupdates" Checked="True" enabled="1" />
+      <CheckBox id="2" text="Domain Member" variablename="domainmember" Checked="True" enabled="1" />
+      <CheckBox id="3" text="Enable Bitlocker" variablename="enablebitlocker" Checked="True" enabled="1" />
    </GroupBox>
 </OSDMenu>
