@@ -15,6 +15,7 @@ Sander Schouten (sander.schouten@proact.nl)
 
 History:
 Update 20190730: Fixed True/False check TSVariables
+Update 20190828: Fixed False TSVariables not written
 
 Copyright Proact Netherlands B.V., All Rights reserved.
 #> 
@@ -75,13 +76,21 @@ Function Enable-CheckedOptions
     $DemoModeItems = @()
     Foreach ($FormItem in $FormItems) {
         If ($FormItem.AccessibilityObject.Role -eq "CheckButton") {
-            If ($FormItem.Checked -eq $True) {
-                If ($DemoMode -eq $true){
-                    $DemoModeItem= @{name = $FormItem.Name;value = "true"}
-                    $DemoModeItems += $DemoModeItem
+            If ($DemoMode -eq $true) {
+                If ($FormItem.Checked -eq $True) {
+                    $DemoModeItem = @{name = $FormItem.Name; value = "true" }
                 }
                 Else {
+                    $DemoModeItem = @{name = $FormItem.Name; value = "false" }
+                }
+                $DemoModeItems += $DemoModeItem
+            }
+            Else {
+                If ($FormItem.Checked -eq $True) {
                     Set-TSVariableValue -TSVariable $FormItem.Name -TSVariableValue "true"
+                }
+                Else {
+                    Set-TSVariableValue -TSVariable $FormItem.Name -TSVariableValue "false"
                 }
             }
         }
