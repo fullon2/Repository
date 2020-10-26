@@ -16,8 +16,8 @@ Sander Schouten (sander.schouten@proact.nl)
 History:
 Update 20190730: Fixed True/False check TSVariables
 Update 20190828: Fixed False TSVariables not written
+Update 20201002: Code Clean Up
 
-Copyright Proact Netherlands B.V., All Rights reserved.
 #> 
 
 [CmdletBinding(SupportsShouldProcess=$true)]
@@ -365,8 +365,8 @@ $statusLabel = New-Object System.Windows.Forms.ToolStripStatusLabel
 [void]$statusStrip.Items.Add($statusLabel)
 $statusStrip.SizingGrip = $false
 $statusLabel.AutoSize = $true
-#$statusLabel.Text = [char]0x00A9 + " 2019 Proact Netherlands B.V."
-$statusLabel.Text = "2019 Proact Netherlands B.V."
+[string]$currentyear = (Get-Date).year
+$statusLabel.Text = ($currentyear + " " + $XMLOSDMenu.OSDMenu.Company)
 $FormItems += $statusStrip
 
 ## Create Enter properties
