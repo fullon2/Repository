@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<OSDMenu Name="OSD Menu" Version="3.0" enablehelp="1">
+<OSDMenu Name="OSD Menu" Version="3.0" enablehelp="1" Company="My Company">
    <GroupBox id="0" type="TextBox" name="Computernaam" wvariablename="OSDComputerName" rvariablename="_SMSTSMachineName" match="^\w[\w\-]{4,14}$" enabled="1" />
    <GroupBox id="1" type="TextBox" name="Primary Users" wvariablename="SMSTSUdaUsers" rvariablename="SMSTSUdaUsers" match="^DOMAIN\\\w+$" enabled="0" />
    <GroupBox id="2" type="ComboBox" name="Installation Type" enabled="1">
