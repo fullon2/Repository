@@ -11,7 +11,7 @@ Just display the output, no changes are made.
 .EXAMPLE 
 powershell -executionpolicy Bypass -file .\OSDMenu.ps1 -XMLFile .\OSDMenu.xml
 .NOTES
-Sander Schouten (sander.schouten@proact.nl)
+Sander Schouten
 
 History:
 Update 20190730: Fixed True/False check TSVariables
